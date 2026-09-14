@@ -1,0 +1,18 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/", "destination": "/remote.html" },
+    { "source": "/remote", "destination": "/remote.html" },
+    { "source": "/reader", "destination": "/index.html" },
+    { "source": "/download", "destination": "/REMOTE_DARURAT.bat" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" }
+      ]
+    }
+  ]
+}
