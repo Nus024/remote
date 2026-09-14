@@ -1,0 +1,2420 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>PC Remote Controller</title>
+  <meta name="description" content="Universal Remote Controller untuk PC - YouTube, TikTok, dan Windows OS." />
+
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📱</text></svg>" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+
+  <!-- MediaPipe Hands & FaceMesh CDN (Non-blocking defer) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root {
+      --bg: #090a0f;
+      --surface: #12141c;
+      --surface-elevated: #181c27;
+      --surface-border: rgba(255, 255, 255, 0.07);
+      --surface-border-subtle: rgba(255, 255, 255, 0.04);
+      --surface-highlight: rgba(255, 255, 255, 0.12);
+      
+      --accent: #38bdf8;
+      --accent-rgb: 56, 189, 248;
+      --emerald: #10b981;
+      --emerald-rgb: 16, 185, 129;
+      --rose: #f43f5e;
+      --amber: #f59e0b;
+      
+      --text: #f1f5f9;
+      --text-muted: #64748b;
+      --text-dim: #475569;
+      
+      --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      
+      --radius-xl: 26px;
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: fixed;
+    }
+
+    body {
+      font-family: var(--font);
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(circle at 50% 0%, #171c2c 0%, transparent 70%),
+        radial-gradient(circle at 50% 100%, #0d1019 0%, transparent 60%);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      padding: 10px 14px 14px;
+      gap: 8px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Top Navigation Header */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 38px;
+      padding: 0 2px;
+      flex-shrink: 0;
+    }
+
+    .brand-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .status-pill:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald);
+      box-shadow: 0 0 8px rgba(var(--emerald-rgb), 0.6);
+      transition: all 0.3s ease;
+    }
+
+    .status-pill.disconnected .status-dot {
+      background: var(--rose);
+      box-shadow: 0 0 8px rgba(244, 63, 94, 0.6);
+    }
+
+    .status-label {
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+    }
+
+    .ip-badge {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Mode Switcher inside Header (Sentuh / Kamera) */
+    .mode-switch-group {
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .mode-toggle-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font);
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .mode-toggle-btn.active {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:active {
+      transform: scale(0.92);
+      color: #fff;
+      border-color: var(--surface-highlight);
+    }
+
+    /* Compact Toolbar (Target Switcher & Style Switcher) */
+    .control-toolbar {
+      display: flex;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .pill-selector {
+      flex: 1;
+      display: flex;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .pill-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 6px 0;
+      border-radius: 9px;
+      font-family: var(--font);
+      font-size: 0.73rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.18s ease;
+    }
+
+    .pill-btn.active {
+      background: rgba(255, 255, 255, 0.09);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Camera Secondary Mode Strip */
+    .camera-modes-row {
+      display: none;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .camera-modes-row.show {
+      display: flex;
+    }
+
+    .cam-sub-btn {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 6px 4px;
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s ease;
+    }
+
+    .cam-sub-btn.active {
+      background: rgba(var(--emerald-rgb), 0.18);
+      border-color: rgba(var(--emerald-rgb), 0.4);
+      color: var(--emerald);
+    }
+
+    /* ==========================================================================
+       MASSIVE MINIMALIST TOUCHPAD SURFACE (Apple Trackpad Aesthetic)
+       ========================================================================== */
+    .touchpad-surface {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      background: radial-gradient(circle at 50% 35%, #151824 0%, #0d0f16 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-xl);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        inset 0 1px 1px rgba(255, 255, 255, 0.06),
+        0 16px 36px rgba(0, 0, 0, 0.6);
+      touch-action: none;
+      padding: 14px 16px;
+    }
+
+    /* Right Edge Touchpad Scroll Strip */
+    .trackpad-scroll-strip {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 40px;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 1px dashed rgba(255, 255, 255, 0.08);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 24px 0;
+      color: var(--text-dim);
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      z-index: 5;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    .trackpad-scroll-strip.active {
+      background: rgba(56, 189, 248, 0.12);
+      border-left: 1px solid var(--accent);
+      color: var(--accent);
+      box-shadow: inset 2px 0 10px rgba(56, 189, 248, 0.25);
+    }
+
+    .scroll-strip-arrow {
+      font-size: 0.75rem;
+      opacity: 0.7;
+    }
+
+    .scroll-strip-text {
+      writing-mode: vertical-rl;
+      text-orientation: mixed;
+      font-size: 0.6rem;
+      letter-spacing: 0.15em;
+    }
+
+    /* Floating Minimal HUD Indicator at Top of Touchpad */
+    .touchpad-minimal-hud {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(14, 17, 26, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      pointer-events: none;
+      z-index: 2;
+      transition: all 0.2s ease;
+    }
+
+    #touchHudStatus {
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .hud-divider {
+      opacity: 0.4;
+    }
+
+    #touchHudSpeed {
+      color: var(--text-muted);
+    }
+
+    /* Center Swipe Cue: Faint, Elegant Vector Arrows */
+    .touchpad-center-guide {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      pointer-events: none;
+      opacity: 0.28;
+      transition: opacity 0.2s ease;
+    }
+
+    .swipe-arrow {
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .swipe-arrow.active.up {
+      color: var(--accent);
+      opacity: 1;
+      transform: translateY(-8px) scale(1.3);
+      filter: drop-shadow(0 0 10px rgba(var(--accent-rgb), 0.8));
+    }
+
+    .swipe-arrow.active.down {
+      color: var(--emerald);
+      opacity: 1;
+      transform: translateY(8px) scale(1.3);
+      filter: drop-shadow(0 0 10px rgba(var(--emerald-rgb), 0.8));
+    }
+
+    .swipe-hint {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    /* Finger Ripple & Glow Cursor */
+    .touch-cursor-ring {
+      position: absolute;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(var(--accent-rgb), 0.3) 0%, rgba(var(--accent-rgb), 0) 75%);
+      border: 1.5px solid rgba(var(--accent-rgb), 0.8);
+      box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.5);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+      display: none;
+      z-index: 3;
+    }
+
+    /* Camera HUD Viewport (Saat Mode Kamera Dipilih) */
+    .camera-hud-outer {
+      display: none;
+      flex: 1;
+      min-height: 0;
+      background: #000;
+      border: 1px solid rgba(var(--emerald-rgb), 0.3);
+      border-radius: var(--radius-xl);
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.6);
+    }
+
+    .camera-hud-outer.show {
+      display: flex;
+    }
+
+    #webcamVideo, #outputCanvas {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    #outputCanvas {
+      z-index: 1;
+    }
+
+    .cam-overlay-ui {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 14px;
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .cam-hud-placeholder {
+      position: absolute;
+      inset: 0;
+      background: rgba(9, 10, 15, 0.95);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      text-align: center;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .cam-hud-placeholder.hidden {
+      display: none;
+    }
+
+    .cam-banner {
+      align-self: center;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(12px);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .cam-banner.up {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .cam-banner.down {
+      border-color: var(--emerald);
+      color: var(--emerald);
+    }
+
+    .gaze-overlay-box {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      z-index: 4;
+      pointer-events: none;
+    }
+
+    .gaze-overlay-box.show {
+      display: flex;
+    }
+
+    .gaze-zone {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.25);
+      transition: all 0.2s ease;
+    }
+
+    .gaze-zone.up.active {
+      background: rgba(var(--accent-rgb), 0.2);
+      color: var(--accent);
+    }
+
+    .gaze-zone.down.active {
+      background: rgba(var(--emerald-rgb), 0.2);
+      color: var(--emerald);
+    }
+
+    /* ==========================================================================
+       BOTTOM CONTROLS (Tactile Media Dock & Speed Bar)
+       ========================================================================== */
+    .bottom-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    /* Mouse Hardware Buttons Bar */
+    .mouse-hardware-bar {
+      display: flex;
+      gap: 8px;
+      height: 44px;
+      flex-shrink: 0;
+      margin-bottom: 1px;
+    }
+
+    .mouse-hw-btn {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.25);
+      transition: all 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mouse-hw-btn:active {
+      transform: scale(0.96);
+      background: var(--surface-elevated);
+    }
+
+    .btn-left-click {
+      border-left: 3px solid var(--accent);
+    }
+
+    .btn-left-click:active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.18);
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);
+    }
+
+    .btn-right-click {
+      border-right: 3px solid var(--rose);
+    }
+
+    .btn-right-click:active {
+      border-color: var(--rose);
+      background: rgba(244, 63, 94, 0.18);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+    }
+
+    .mouse-scroll-pad {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      width: 50px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 2px;
+      flex-shrink: 0;
+    }
+
+    .scroll-arrow-btn {
+      width: 100%;
+      height: 18px;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: all 0.12s ease;
+    }
+
+    .scroll-arrow-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+
+    .scroll-pad-title {
+      font-size: 0.55rem;
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      line-height: 1;
+    }
+
+    /* Ergonomic Media Buttons Bar */
+    .media-button-bar {
+      display: grid;
+      grid-template-columns: 1fr 1.25fr 1fr;
+      gap: 8px;
+    }
+
+    .media-action-btn {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      height: 48px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .media-action-btn:active {
+      transform: scale(0.93);
+      background: var(--surface-elevated);
+      border-color: var(--surface-highlight);
+    }
+
+    .media-action-btn.hero-play {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.16);
+      color: #fff;
+      position: relative;
+    }
+
+    .media-action-btn.hero-play:active {
+      background: rgba(255, 255, 255, 0.16);
+      border-color: var(--accent);
+    }
+
+    /* Ikon default saat video sedang berputar (menampilkan tombol Pause) */
+    .media-action-btn.hero-play .icon-play {
+      display: none;
+    }
+
+    .media-action-btn.hero-play .icon-pause {
+      display: block;
+    }
+
+    /* Tampilan saat Pause Aktif (Video dijeda, tombol berubah jadi icon Play) */
+    .media-action-btn.hero-play.is-paused {
+      background: rgba(245, 158, 11, 0.14);
+      border-color: rgba(245, 158, 11, 0.45);
+      color: var(--amber);
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.2);
+    }
+
+    .media-action-btn.hero-play.is-paused:active {
+      background: rgba(245, 158, 11, 0.28);
+    }
+
+    .media-action-btn.hero-play.is-paused .icon-play {
+      display: block;
+      transform: translateX(1px);
+    }
+
+    .media-action-btn.hero-play.is-paused .icon-pause {
+      display: none;
+    }
+
+    /* Volume Control Bar */
+    .volume-button-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+    }
+
+    .vol-btn {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      height: 38px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-family: var(--font);
+      font-size: 0.74rem;
+      font-weight: 700;
+      transition: all 0.15s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .vol-btn:active {
+      transform: scale(0.94);
+      background: var(--surface-elevated);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .vol-btn.mute-btn.is-muted {
+      background: rgba(244, 63, 94, 0.14);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: var(--rose);
+      box-shadow: 0 0 12px rgba(244, 63, 94, 0.2);
+    }
+
+    .vol-btn.mute-btn .icon-muted {
+      display: none;
+    }
+
+    .vol-btn.mute-btn .icon-unmuted {
+      display: block;
+    }
+
+    .vol-btn.mute-btn.is-muted .icon-muted {
+      display: block;
+    }
+
+    .vol-btn.mute-btn.is-muted .icon-unmuted {
+      display: none;
+    }
+
+    /* Sub-Utility Strip (Speed & Wake) */
+    .sub-utility-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 0 2px;
+    }
+
+    .speed-selector-group {
+      display: flex;
+      align-items: center;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 2px 4px;
+      gap: 2px;
+    }
+
+    .speed-label {
+      font-size: 0.64rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      padding: 0 4px 0 2px;
+      letter-spacing: 0.05em;
+    }
+
+    .speed-chip {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .speed-chip.active {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .velocity-track {
+      flex: 1;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .velocity-progress {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      transition: width 0.1s linear;
+    }
+
+    .wake-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--amber);
+    }
+
+    .wake-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ==========================================================================
+       BOTTOM SHEET MODALS (Clean & Non-AI)
+       ========================================================================== */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 100;
+      padding-bottom: env(safe-area-inset-bottom, 0);
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-sheet {
+      width: 100%;
+      max-width: 480px;
+      background: #11141c;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 24px 24px 0 0;
+      padding: 20px 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: sheetSlideUp 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+    }
+
+    @keyframes sheetSlideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .text-input {
+      width: 100%;
+      background: #090a0f;
+      border: 1px solid var(--surface-border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      color: #fff;
+      font-family: var(--font-mono);
+      font-size: 0.92rem;
+      outline: none;
+      transition: border-color 0.2s ease;
+    }
+
+    .text-input:focus {
+      border-color: var(--accent);
+    }
+
+    .btn-primary {
+      background: #fff;
+      border: none;
+      color: #000;
+      padding: 12px;
+      border-radius: var(--radius-md);
+      font-family: var(--font);
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.97);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .tips-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: var(--text-muted);
+    }
+
+    .tips-list li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .tip-icon {
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .tips-list b {
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER -->
+  <header class="app-header">
+    <div class="brand-wrap">
+      <div id="wifiStatusPill" class="status-pill" title="Status Jaringan & Pengaturan IP">
+        <span class="status-dot"></span>
+        <span class="status-label">Remote</span>
+        <span id="wifiStatusText" class="ip-badge">192.168.1.49</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <!-- Mode Toggle: Touch / Camera -->
+      <div class="mode-switch-group">
+        <button class="mode-toggle-btn active" data-mode="touch" title="Mode Sentuh Layar">
+          <span>Sentuh</span>
+        </button>
+        <button class="mode-toggle-btn" data-mode="camera" title="Mode Sensor Kamera">
+          <span>Kamera</span>
+        </button>
+      </div>
+
+      <button id="btnOpenSettings" class="icon-btn" title="Pengaturan IP">⚙️</button>
+      <button id="btnOpenHelp" class="icon-btn" title="Petunjuk">ℹ️</button>
+    </div>
+  </header>
+
+  <!-- HTTPS / Mixed Content Notice (Muncul jika dibuka via Vercel HTTPS) -->
+  <div id="httpsWarningBanner" style="display: none; background: rgba(244, 63, 94, 0.14); border: 1px solid rgba(244, 63, 94, 0.45); border-radius: var(--radius-md); padding: 8px 12px; font-size: 0.72rem; color: #fecdd3; line-height: 1.4; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; justify-content: space-between; font-weight: 700; margin-bottom: 2px;">
+      <span style="color: var(--rose);">⚠️ Browser HP Memblokir IP Lokal (HTTPS)</span>
+      <button id="btnCloseHttpsWarn" type="button" style="background: none; border: none; color: #fff; font-size: 0.85rem; cursor: pointer;">✕</button>
+    </div>
+    <div>Browser HP memblokir perintah ke IP lokal karena web ini dibuka via HTTPS (Vercel).</div>
+    <div style="margin-top: 4px; font-weight: 700; color: #fff;">
+      👉 Buka langsung di browser HP: <a id="directLocalLink" href="#" style="color: var(--accent); text-decoration: underline;">http://192.168.1.11:8000</a>
+    </div>
+  </div>
+
+  <!-- CONTROL TOOLBAR (Style: Snap Shorts vs Gulir Halus vs Mouse Trackpad) -->
+  <div class="control-toolbar" id="touchStyleRow">
+    <div class="pill-selector" style="width: 100%;">
+      <button class="pill-btn active" data-style="shorts" title="Mode 1 Usap = 1 Video Shorts / TikTok">
+        <span>🎬 Shorts</span>
+      </button>
+      <button class="pill-btn" data-style="smooth" title="Mode Gulir Roda Mouse Kontinu">
+        <span>🌊 Gulir</span>
+      </button>
+      <button class="pill-btn" data-style="mouse" title="Mode Mouse Trackpad PC (Kursor & Klik)">
+        <span>🖱️ Mouse</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- CAMERA SECONDARY MODE STRIP (Hanya muncul saat mode kamera dipilih) -->
+  <div id="cameraModesRow" class="camera-modes-row">
+    <button class="cam-sub-btn active" data-cam-mode="tip">👆 Telunjuk</button>
+    <button class="cam-sub-btn" data-cam-mode="eye">👁️ Lirikan</button>
+    <button class="cam-sub-btn" data-cam-mode="zone">🖐️ Posisi</button>
+  </div>
+
+  <!-- ==========================================================================
+       MASSIVE TOUCHPAD SURFACE (Area Sentuh Maksimal)
+       ========================================================================== -->
+  <main id="touchpadArea" class="touchpad-surface">
+    <div id="touchCursor" class="touch-cursor-ring"></div>
+
+    <!-- Floating Minimal HUD Indicator -->
+    <div class="touchpad-minimal-hud">
+      <span id="touchHudStatus">🎬 Snap Shorts</span>
+      <span class="hud-divider">·</span>
+      <span id="touchHudSpeed">1 Usap = 1 Video</span>
+    </div>
+
+    <!-- Center Subtle Swipe Cue -->
+    <div class="touchpad-center-guide">
+      <div id="chevronUp" class="swipe-arrow up">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+      </div>
+      <div id="touchHintLabel" class="swipe-hint">Usap Layar</div>
+      <div id="chevronDown" class="swipe-arrow down">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+    </div>
+
+    <!-- Right Edge Touchpad Scroll Strip (Khusus Mode Mouse) -->
+    <div id="trackpadScrollStrip" class="trackpad-scroll-strip" title="Roda Scroll Mouse">
+      <span class="scroll-strip-arrow">▲</span>
+      <span class="scroll-strip-text">SCROLL</span>
+      <span class="scroll-strip-arrow">▼</span>
+    </div>
+
+    <div style="height: 10px; width: 100%;"></div>
+  </main>
+
+  <!-- CAMERA HUD (Muncul Saat Mode Kamera Dipilih) -->
+  <div id="cameraArea" class="camera-hud-outer">
+    <video id="webcamVideo" playsinline webkit-playsinline muted autoplay></video>
+    <canvas id="outputCanvas" width="320" height="240"></canvas>
+
+    <div class="cam-overlay-ui">
+      <div style="display: flex; justify-content: space-between; pointer-events: none;">
+        <span id="hudFps" class="touchpad-minimal-hud">-- FPS</span>
+        <span id="hudMetric" class="touchpad-minimal-hud">Sensor: Siap</span>
+      </div>
+
+      <div id="camDirectionBanner" class="cam-banner">
+        <span id="camDirectionIcon">⏸</span>
+        <span id="camDirectionText">Arahkan Kamera Selfie</span>
+      </div>
+
+      <div style="display: flex; justify-content: flex-end; pointer-events: none;">
+        <span id="hudSpeedMultiplier" class="touchpad-minimal-hud">2.0x</span>
+      </div>
+    </div>
+
+    <div id="gazeOverlay" class="gaze-overlay-box">
+      <div id="gazeUp" class="gaze-zone up">⬆ Poni HP (Naik)</div>
+      <div id="gazeNeutral" class="gaze-zone neutral">📖 Tengah Layar (Diam)</div>
+      <div id="gazeDown" class="gaze-zone down">⬇ Navbar HP (Turun)</div>
+    </div>
+
+    <div id="camPlaceholder" class="cam-hud-placeholder">
+      <div style="font-size: 2rem;">📷</div>
+      <div style="font-size: 0.95rem; font-weight: 700; color: #fff;">Sensor Kamera Aktif</div>
+      <div style="font-size: 0.78rem; color: var(--text-muted); max-width: 240px; line-height: 1.4;">
+        Gunakan kamera depan untuk mengontrol tanpa menyentuh layar.
+      </div>
+      <button id="btnStartCamera" class="btn-primary" style="padding: 8px 18px; font-size: 0.8rem; margin-top: 4px;">
+        Mulai Kamera Depan
+      </button>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       BOTTOM CONTROLS (Tactile Media Dock & Speed Bar)
+       ========================================================================== -->
+  <footer class="bottom-controls">
+    <!-- Dedicated Mouse Buttons (Klik Kiri, Scroll Bar, Klik Kanan) -->
+    <div id="mouseButtonsRow" class="mouse-hardware-bar">
+      <button id="btnMouseLeft" class="mouse-hw-btn btn-left-click" title="Klik Kiri PC">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M12 2v8M12 2a7 7 0 0 0-7 7v6a7 7 0 0 0 14 0V9a7 7 0 0 0-7-7z"/>
+          <path d="M5 9h7" stroke="var(--accent)" stroke-width="3"/>
+        </svg>
+        <span>Klik Kiri</span>
+      </button>
+
+      <div class="mouse-scroll-pad">
+        <button id="btnScrollUp" class="scroll-arrow-btn" title="Scroll Atas (Roda Mouse)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <span class="scroll-pad-title">Scroll</span>
+        <button id="btnScrollDown" class="scroll-arrow-btn" title="Scroll Bawah (Roda Mouse)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+      </div>
+
+      <button id="btnMouseRight" class="mouse-hw-btn btn-right-click" title="Klik Kanan PC">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+          <path d="M12 2v8M12 2a7 7 0 0 0-7 7v6a7 7 0 0 0 14 0V9a7 7 0 0 0-7-7z"/>
+          <path d="M12 9h7" stroke="var(--rose)" stroke-width="3"/>
+        </svg>
+        <span>Klik Kanan</span>
+      </button>
+    </div>
+
+    <!-- Media Buttons Bar -->
+    <div class="media-button-bar">
+      <button class="media-action-btn" id="btnMediaPrev" aria-label="Video Sebelumnya" title="Sebelumnya">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+      </button>
+      <button class="media-action-btn hero-play" id="btnMediaPlay" aria-label="Play / Pause" title="Jeda Video (Pause)">
+        <!-- Icon saat video aktif berputar: Jeda / Pause (❚❚) -->
+        <svg class="icon-pause" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+        </svg>
+        <!-- Icon saat video sedang dijeda: Putar / Play (▶) -->
+        <svg class="icon-play" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </button>
+      <button class="media-action-btn" id="btnMediaNext" aria-label="Video Lanjut" title="Lanjut">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+      </button>
+    </div>
+
+    <!-- Volume Control Bar (Vol -, Mute, Vol +) -->
+    <div class="volume-button-bar">
+      <button class="vol-btn" id="btnVolDown" aria-label="Volume Turun" title="Volume Turun (-)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <line x1="15" y1="12" x2="19" y2="12"/>
+        </svg>
+        <span>Vol -</span>
+      </button>
+
+      <button class="vol-btn mute-btn" id="btnVolMute" aria-label="Mute / Unmute" title="Mute Suara">
+        <!-- Icon Speaker Bersuara (Normal) -->
+        <svg class="icon-unmuted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        </svg>
+        <!-- Icon Speaker Dibisukan (Muted) -->
+        <svg class="icon-muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <line x1="23" y1="9" x2="17" y2="15"/>
+          <line x1="17" y1="9" x2="23" y2="15"/>
+        </svg>
+        <span id="muteLabel">Mute</span>
+      </button>
+
+      <button class="vol-btn" id="btnVolUp" aria-label="Volume Naik" title="Volume Naik (+)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <line x1="17" y1="9" x2="17" y2="15"/>
+          <line x1="14" y1="12" x2="20" y2="12"/>
+        </svg>
+        <span>Vol +</span>
+      </button>
+    </div>
+
+    <!-- Sub-Utility Strip (Speed Multipliers & Wake Lock) -->
+    <div class="sub-utility-strip">
+      <div class="speed-selector-group">
+        <span class="speed-label">SPEED</span>
+        <button class="speed-chip" data-speed="1.0">1x</button>
+        <button class="speed-chip active" data-speed="2.0">2x</button>
+        <button class="speed-chip" data-speed="4.0">4x</button>
+        <button class="speed-chip" data-speed="8.0">8x</button>
+      </div>
+
+      <div class="velocity-track">
+        <div id="velocityBar" class="velocity-progress"></div>
+      </div>
+
+      <div class="wake-indicator" title="Layar Tetap Terjaga">
+        <span class="wake-dot"></span>
+        <span id="wakeStatusText">☀️ On</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ==========================================================================
+       MODAL: PENGATURAN IP LAPTOP (Bottom Sheet)
+       ========================================================================== -->
+  <div id="settingsModal" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Pengaturan IP Komputer</div>
+        <button id="btnCloseSettings" class="icon-btn" aria-label="Tutup">✕</button>
+      </div>
+
+      <div class="input-group">
+        <label class="input-label">Alamat IP Laptop / PC Anda di Wi-Fi:</label>
+        <input type="text" id="inputPcIp" class="text-input" placeholder="Contoh: 192.168.1.49" />
+      </div>
+
+      <button id="btnSaveIp" class="btn-primary">
+        <span>Simpan & Sambungkan</span>
+      </button>
+
+      <!-- Unduh REMOTE_DARURAT.bat Section -->
+      <div style="height: 1px; background: var(--surface-border); margin: 2px 0;"></div>
+      <div style="display: flex; flex-direction: column; gap: 8px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: var(--radius-md); padding: 12px 14px;">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span style="font-weight: 700; font-size: 0.8rem; color: #fff;">Laptop Panitia (Mode Darurat)</span>
+          <span style="font-size: 0.62rem; background: rgba(56, 189, 248, 0.2); color: var(--accent); padding: 2px 6px; border-radius: 8px; font-weight: 700; font-family: var(--font-mono);">1-FILE ZERO INSTALL</span>
+        </div>
+        <div style="font-size: 0.72rem; color: var(--text-muted); line-height: 1.4;">
+          Unduh file server mandiri untuk dijalankan di laptop panitia / komputer lain tanpa install Python.
+        </div>
+        <button id="btnDownloadDarurat" type="button" style="background: var(--accent); color: #090a0f; border: none; padding: 10px; border-radius: var(--radius-md); font-family: var(--font); font-weight: 800; font-size: 0.82rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.15s ease;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Unduh REMOTE_DARURAT.bat</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       MODAL: PETUNJUK PENGGUNAAN (Bottom Sheet)
+       ========================================================================== -->
+  <div id="helpModal" class="modal-backdrop">
+    <div class="modal-sheet">
+      <div class="modal-header">
+        <div class="modal-title">Petunjuk Penggunaan</div>
+        <button id="btnCloseHelp" class="icon-btn" aria-label="Tutup">✕</button>
+      </div>
+
+      <ul class="tips-list">
+        <li>
+          <span class="tip-icon">🎬</span>
+          <div><b>Snap Shorts:</b> Usap ke atas untuk video berikutnya, usap ke bawah untuk video sebelumnya (tepat 1 video tanpa bablas).</div>
+        </li>
+        <li>
+          <span class="tip-icon">🌊</span>
+          <div><b>Gulir Halus:</b> Geser jari perlahan untuk menggulir halaman YouTube biasa (komentar), dokumen Word, atau PDF.</div>
+        </li>
+        <li>
+          <span class="tip-icon">🖱️</span>
+          <div><b>Mode Mouse Trackpad:</b> Gerakkan kursor PC dengan mengusap layar. <b>Ketuk 1 jari:</b> Klik Kiri. <b>Ketuk 2 jari / tahan:</b> Klik Kanan. <b>Geser 2 jari / strip samping:</b> Scroll Roda Mouse. Tersedia juga tombol fisik Klik Kiri & Kanan di bawah.</div>
+        </li>
+        <li>
+          <span class="tip-icon">⏯️</span>
+          <div><b>Play / Pause:</b> Menjeda atau memutar video seketika tanpa berpindah posisi.</div>
+        </li>
+        <li>
+          <span class="tip-icon">🔊</span>
+          <div><b>Kontrol Volume:</b> Atur volume suara PC langsung dari HP (Vol +, Vol -, dan tombol Mute).</div>
+        </li>
+        <li>
+          <span class="tip-icon">📷</span>
+          <div><b>Kamera Depan:</b> Kontrol hands-free dengan mengarahkan lirikan mata atau ujung telunjuk ke kamera depan HP.</div>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ==========================================================================
+       SCRIPTS & LOGIC
+       ========================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ------------------------------------------------------------------------
+      // Configuration & Dynamic Target IP (Method A Cloud-Ready)
+      // ------------------------------------------------------------------------
+      function getDefaultIP() {
+        const saved = localStorage.getItem('remote_pc_ip');
+        if (saved) return saved;
+        const host = window.location.hostname;
+        if (host && host !== 'localhost' && host !== '127.0.0.1' && /^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+          return host;
+        }
+        return '192.168.1.49';
+      }
+
+      let currentPcIp = getDefaultIP();
+
+      function getApiUrl(path) {
+        return `http://${currentPcIp}:8000${path}`;
+      }
+
+      // ------------------------------------------------------------------------
+      // State Variables
+      // ------------------------------------------------------------------------
+      let currentTarget = 'windows'; // 'windows' | 'web'
+      let currentMode = 'touch';     // 'touch' | 'camera'
+      let cameraSubMode = 'tip';     // 'tip' | 'eye' | 'zone'
+      let touchStyle = 'shorts';     // 'shorts' | 'smooth'
+      let manualSpeed = 2.0;
+
+      let isCameraActive = false;
+      let handsInstance = null;
+      let faceMeshInstance = null;
+      let cameraInstance = null;
+
+      let smoothedPalmY = null;
+      let smoothedTipDeltaY = null;
+      let smoothedGazeY = null;
+      let activeTipState = 'neutral';
+      let activeGazeState = 'neutral';
+
+      let lastSentVelocity = 0;
+      let targetVelocity = 0;
+      let lastSendTime = 0;
+      const SEND_INTERVAL_MS = 55;
+
+      // DOM Elements
+      const wifiStatusPill = document.getElementById('wifiStatusPill');
+      const wifiStatusText = document.getElementById('wifiStatusText');
+      const settingsModal = document.getElementById('settingsModal');
+      const helpModal = document.getElementById('helpModal');
+      const btnOpenSettings = document.getElementById('btnOpenSettings');
+      const btnCloseSettings = document.getElementById('btnCloseSettings');
+      const btnOpenHelp = document.getElementById('btnOpenHelp');
+      const btnCloseHelp = document.getElementById('btnCloseHelp');
+      const inputPcIp = document.getElementById('inputPcIp');
+      const btnSaveIp = document.getElementById('btnSaveIp');
+
+      const targetBtns = document.querySelectorAll('[data-target]');
+      const modeBtns = document.querySelectorAll('[data-mode]');
+      const camSubBtns = document.querySelectorAll('[data-cam-mode]');
+      const touchStyleBtns = document.querySelectorAll('[data-style]');
+      const speedPillBtns = document.querySelectorAll('[data-speed]');
+
+      const cameraModesRow = document.getElementById('cameraModesRow');
+      const touchStyleRow = document.getElementById('touchStyleRow');
+
+      const btnMouseLeft = document.getElementById('btnMouseLeft');
+      const btnMouseRight = document.getElementById('btnMouseRight');
+      const btnScrollUp = document.getElementById('btnScrollUp');
+      const btnScrollDown = document.getElementById('btnScrollDown');
+      const mouseButtonsRow = document.getElementById('mouseButtonsRow');
+      const trackpadScrollStrip = document.getElementById('trackpadScrollStrip');
+
+      const touchpadArea = document.getElementById('touchpadArea');
+      const touchCursor = document.getElementById('touchCursor');
+      const touchHudStatus = document.getElementById('touchHudStatus');
+      const touchHudSpeed = document.getElementById('touchHudSpeed');
+      const chevronUp = document.getElementById('chevronUp');
+      const chevronDown = document.getElementById('chevronDown');
+      const touchHintLabel = document.getElementById('touchHintLabel');
+
+      const cameraArea = document.getElementById('cameraArea');
+      const webcamVideo = document.getElementById('webcamVideo');
+      const outputCanvas = document.getElementById('outputCanvas');
+      const canvasCtx = outputCanvas.getContext('2d');
+      const camPlaceholder = document.getElementById('camPlaceholder');
+      const btnStartCamera = document.getElementById('btnStartCamera');
+      const hudFps = document.getElementById('hudFps');
+      const hudMetric = document.getElementById('hudMetric');
+      const hudSpeedMultiplier = document.getElementById('hudSpeedMultiplier');
+      const camDirectionBanner = document.getElementById('camDirectionBanner');
+      const camDirectionIcon = document.getElementById('camDirectionIcon');
+      const camDirectionText = document.getElementById('camDirectionText');
+      const gazeOverlay = document.getElementById('gazeOverlay');
+      const gazeUp = document.getElementById('gazeUp');
+      const gazeNeutral = document.getElementById('gazeNeutral');
+      const gazeDown = document.getElementById('gazeDown');
+
+      const btnMediaPrev = document.getElementById('btnMediaPrev');
+      const btnMediaPlay = document.getElementById('btnMediaPlay');
+      const btnMediaNext = document.getElementById('btnMediaNext');
+      const velocityBar = document.getElementById('velocityBar');
+
+      // Update Header IP Pill
+      wifiStatusText.textContent = currentPcIp;
+      inputPcIp.value = currentPcIp;
+
+      // ------------------------------------------------------------------------
+      // Modal Handlers
+      // ------------------------------------------------------------------------
+      function openModal(el) { el.classList.add('open'); }
+      function closeModal(el) { el.classList.remove('open'); }
+
+      btnOpenSettings.addEventListener('click', () => openModal(settingsModal));
+      wifiStatusPill.addEventListener('click', () => openModal(settingsModal));
+      btnCloseSettings.addEventListener('click', () => closeModal(settingsModal));
+
+      btnOpenHelp.addEventListener('click', () => openModal(helpModal));
+      btnCloseHelp.addEventListener('click', () => closeModal(helpModal));
+
+      [settingsModal, helpModal].forEach(m => {
+        m.addEventListener('click', (e) => {
+          if (e.target === m) closeModal(m);
+        });
+      });
+
+      btnSaveIp.addEventListener('click', () => {
+        const val = inputPcIp.value.trim();
+        if (val) {
+          currentPcIp = val;
+          localStorage.setItem('remote_pc_ip', val);
+          wifiStatusText.textContent = val;
+          closeModal(settingsModal);
+          checkConnection();
+        }
+      });
+
+      const btnDownloadDarurat = document.getElementById('btnDownloadDarurat');
+      if (btnDownloadDarurat) {
+        btnDownloadDarurat.addEventListener('click', () => {
+          const dlUrl = getApiUrl('/REMOTE_DARURAT.bat');
+          const a = document.createElement('a');
+          a.href = dlUrl;
+          a.download = 'REMOTE_DARURAT.bat';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        });
+      }
+
+      // ------------------------------------------------------------------------
+      // HTTPS / Mixed Content Detection
+      // ------------------------------------------------------------------------
+      const httpsWarningBanner = document.getElementById('httpsWarningBanner');
+      const directLocalLink = document.getElementById('directLocalLink');
+      const btnCloseHttpsWarn = document.getElementById('btnCloseHttpsWarn');
+
+      function updateHttpsNotice() {
+        if (window.location.protocol === 'https:') {
+          if (httpsWarningBanner) httpsWarningBanner.style.display = 'block';
+          if (directLocalLink) {
+            directLocalLink.textContent = `http://${currentPcIp}:8000`;
+            directLocalLink.href = `http://${currentPcIp}:8000`;
+          }
+        }
+      }
+      updateHttpsNotice();
+
+      if (btnCloseHttpsWarn) {
+        btnCloseHttpsWarn.addEventListener('click', () => {
+          if (httpsWarningBanner) httpsWarningBanner.style.display = 'none';
+        });
+      }
+
+      // ------------------------------------------------------------------------
+      // Connection Checker
+      // ------------------------------------------------------------------------
+      function checkConnection() {
+        fetch(getApiUrl('/api/info'))
+          .then(res => res.json())
+          .then(() => {
+            wifiStatusPill.classList.remove('disconnected');
+            wifiStatusText.textContent = currentPcIp;
+            if (httpsWarningBanner) httpsWarningBanner.style.display = 'none';
+          })
+          .catch(() => {
+            wifiStatusPill.classList.add('disconnected');
+            if (window.location.protocol === 'https:') {
+              wifiStatusText.textContent = `${currentPcIp} (Diblokir HTTPS)`;
+              updateHttpsNotice();
+            } else {
+              wifiStatusText.textContent = `${currentPcIp} (Terputus)`;
+            }
+          });
+      }
+      checkConnection();
+
+      // ------------------------------------------------------------------------
+      // Main Mode Selection (Touch vs Camera)
+      // ------------------------------------------------------------------------
+      modeBtns.forEach(btn => {
+        btn.addEventListener('click', async () => {
+          modeBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          currentMode = btn.dataset.mode;
+
+          if (currentMode === 'touch') {
+            touchpadArea.style.display = 'flex';
+            cameraArea.classList.remove('show');
+            cameraModesRow.classList.remove('show');
+            touchStyleRow.style.display = 'flex';
+            stopCamera();
+          } else {
+            touchpadArea.style.display = 'none';
+            cameraArea.classList.add('show');
+            cameraModesRow.classList.add('show');
+            touchStyleRow.style.display = 'none';
+            if (isCameraActive) updateCameraDetection();
+          }
+        });
+      });
+
+      // ------------------------------------------------------------------------
+      // Camera Sub-Modes (Telunjuk, Lirikan, Posisi)
+      // ------------------------------------------------------------------------
+      camSubBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          camSubBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          cameraSubMode = btn.dataset.camMode;
+          updateCameraDetection();
+        });
+      });
+
+      function updateCameraDetection() {
+        if (cameraSubMode === 'eye') {
+          gazeOverlay.classList.add('show');
+          if (isCameraActive && !faceMeshInstance) initializeFaceMesh();
+        } else {
+          gazeOverlay.classList.remove('show');
+          if (isCameraActive && !handsInstance) initializeHands();
+        }
+      }
+
+      // ------------------------------------------------------------------------
+      // Touch Sub-Styles (Snap Shorts vs Gulir Halus)
+      // ------------------------------------------------------------------------
+      touchStyleBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          touchStyleBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          touchStyle = btn.dataset.style;
+          updateTouchStyleHUD();
+        });
+      });
+
+      function updateTouchStyleHUD() {
+        if (touchStyle === 'shorts') {
+          touchHudStatus.textContent = '🎬 Snap Shorts';
+          touchHudSpeed.textContent = '1 Usap = 1 Video';
+          touchHintLabel.textContent = 'Usap Video Shorts';
+          chevronUp.style.display = 'block';
+          chevronDown.style.display = 'block';
+          trackpadScrollStrip.style.display = 'none';
+        } else if (touchStyle === 'smooth') {
+          touchHudStatus.textContent = '🌊 Gulir Halus';
+          touchHudSpeed.textContent = 'Aliran Bebas';
+          touchHintLabel.textContent = 'Geser Kontinu';
+          chevronUp.style.display = 'block';
+          chevronDown.style.display = 'block';
+          trackpadScrollStrip.style.display = 'none';
+        } else if (touchStyle === 'mouse') {
+          touchHudStatus.textContent = '🖱️ Mouse Trackpad';
+          touchHudSpeed.textContent = 'Ketuk: Kiri · 2 Jari: Kanan';
+          touchHintLabel.textContent = 'Trackpad Kursor';
+          chevronUp.style.display = 'none';
+          chevronDown.style.display = 'none';
+          trackpadScrollStrip.style.display = 'flex';
+        }
+      }
+
+      // ------------------------------------------------------------------------
+      // Speed Multipliers
+      // ------------------------------------------------------------------------
+      speedPillBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          speedPillBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          manualSpeed = parseFloat(btn.dataset.speed);
+          hudSpeedMultiplier.textContent = manualSpeed.toFixed(1) + 'x';
+        });
+      });
+
+      // ------------------------------------------------------------------------
+      // Mouse API Communication (Trackpad Move, Click, Scroll)
+      // ------------------------------------------------------------------------
+      let mouseMoveThrottleTimer = null;
+      let pendingDx = 0;
+      let pendingDy = 0;
+
+      function sendMouseMove(dx, dy) {
+        pendingDx += dx;
+        pendingDy += dy;
+        if (!mouseMoveThrottleTimer) {
+          mouseMoveThrottleTimer = requestAnimationFrame(() => {
+            const toSendX = pendingDx;
+            const toSendY = pendingDy;
+            pendingDx = 0;
+            pendingDy = 0;
+            mouseMoveThrottleTimer = null;
+
+            if (Math.abs(toSendX) > 0.05 || Math.abs(toSendY) > 0.05) {
+              fetch(getApiUrl('/api/mouse'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dx: toSendX, dy: toSendY })
+              }).then(res => {
+                if (res.ok) wifiStatusPill.classList.remove('disconnected');
+              }).catch(() => {
+                wifiStatusPill.classList.add('disconnected');
+              });
+            }
+          });
+        }
+      }
+
+      function sendMouseClick(button) {
+        const btn = String(button).toLowerCase();
+        if ('vibrate' in navigator) {
+          if (btn === 'right') navigator.vibrate([20, 25, 20]);
+          else navigator.vibrate(15);
+        }
+
+        if (btn === 'right') {
+          touchHudStatus.textContent = '🖱️ Klik Kanan';
+          touchHudSpeed.textContent = 'Menu Konteks';
+        } else if (btn === 'double') {
+          touchHudStatus.textContent = '🖱️ Klik Ganda (2x)';
+          touchHudSpeed.textContent = 'Buka Item';
+        } else {
+          touchHudStatus.textContent = '🖱️ Klik Kiri';
+          touchHudSpeed.textContent = 'Pilih / Klik';
+        }
+
+        fetch(getApiUrl('/api/mouse'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ click: btn })
+        }).then(res => {
+          if (res.ok) wifiStatusPill.classList.remove('disconnected');
+        }).catch(() => {
+          wifiStatusPill.classList.add('disconnected');
+        });
+      }
+
+      function sendMouseScroll(delta) {
+        if ('vibrate' in navigator) navigator.vibrate(10);
+        touchHudStatus.textContent = delta > 0 ? '⬆ Scroll Ke Atas' : '⬇ Scroll Ke Bawah';
+        touchHudSpeed.textContent = Math.abs(delta).toFixed(0) + ' px';
+
+        fetch(getApiUrl('/api/mouse'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scroll: delta })
+        }).then(res => {
+          if (res.ok) wifiStatusPill.classList.remove('disconnected');
+        }).catch(() => {
+          wifiStatusPill.classList.add('disconnected');
+        });
+      }
+
+      // Dedicated Mouse Hardware Buttons
+      btnMouseLeft.addEventListener('click', () => sendMouseClick('left'));
+      btnMouseRight.addEventListener('click', () => sendMouseClick('right'));
+      btnScrollUp.addEventListener('click', () => sendMouseScroll(180));
+      btnScrollDown.addEventListener('click', () => sendMouseScroll(-180));
+
+      // ------------------------------------------------------------------------
+      // Network Commands (Swipe, Key, Scroll)
+      // ------------------------------------------------------------------------
+      function sendSwipeToPC(direction) {
+        fetch(getApiUrl('/api/scroll'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ swipe: direction })
+        }).then(res => {
+          if (res.ok) wifiStatusPill.classList.remove('disconnected');
+        }).catch(() => {
+          wifiStatusPill.classList.add('disconnected');
+        });
+      }
+
+      function sendKeyCommand(keyName) {
+        if ('vibrate' in navigator) navigator.vibrate(30);
+        fetch(getApiUrl('/api/scroll'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: keyName })
+        }).then(res => {
+          if (res.ok) wifiStatusPill.classList.remove('disconnected');
+        }).catch(() => {
+          wifiStatusPill.classList.add('disconnected');
+        });
+      }
+
+      function sendScrollToPC(velocity) {
+        const now = performance.now();
+        if (now - lastSendTime < SEND_INTERVAL_MS && Math.abs(velocity - lastSentVelocity) < 0.2) {
+          return;
+        }
+        lastSendTime = now;
+        lastSentVelocity = velocity;
+
+        const meterPercent = Math.min(100, Math.abs(velocity) * 3.5);
+        velocityBar.style.width = meterPercent + '%';
+
+        fetch(getApiUrl('/api/scroll'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            velocity: velocity
+          })
+        }).then(res => {
+          if (res.ok) wifiStatusPill.classList.remove('disconnected');
+        }).catch(() => {
+          wifiStatusPill.classList.add('disconnected');
+        });
+      }
+
+      // Media Buttons Listeners & Differentiated Play/Pause State
+      let isMediaPaused = false;
+
+      function updatePlayPauseUI() {
+        if (isMediaPaused) {
+          btnMediaPlay.classList.add('is-paused');
+          btnMediaPlay.setAttribute('title', 'Putar Video (Play)');
+          touchHudStatus.textContent = '⏸️ Video Dijeda';
+          touchHudSpeed.textContent = 'Klik untuk Putar';
+        } else {
+          btnMediaPlay.classList.remove('is-paused');
+          btnMediaPlay.setAttribute('title', 'Jeda Video (Pause)');
+          touchHudStatus.textContent = '▶️ Memutar Video';
+          touchHudSpeed.textContent = 'Klik untuk Jeda';
+        }
+      }
+
+      btnMediaPrev.addEventListener('click', () => {
+        sendKeyCommand('prev');
+        isMediaPaused = false;
+        updatePlayPauseUI();
+        touchHudStatus.textContent = '⏮️ Video Sblm';
+      });
+
+      btnMediaPlay.addEventListener('click', () => {
+        sendKeyCommand('playpause');
+        isMediaPaused = !isMediaPaused;
+        updatePlayPauseUI();
+      });
+
+      btnMediaNext.addEventListener('click', () => {
+        sendKeyCommand('next');
+        isMediaPaused = false;
+        updatePlayPauseUI();
+        touchHudStatus.textContent = '⏭️ Video Lanjut';
+      });
+
+      // Volume Control Listeners
+      const btnVolDown = document.getElementById('btnVolDown');
+      const btnVolMute = document.getElementById('btnVolMute');
+      const btnVolUp = document.getElementById('btnVolUp');
+      const muteLabel = document.getElementById('muteLabel');
+      let isAudioMuted = false;
+
+      btnVolDown.addEventListener('click', () => {
+        sendKeyCommand('voldown');
+        if ('vibrate' in navigator) navigator.vibrate(15);
+        touchHudStatus.textContent = '🔉 Volume Turun';
+        touchHudSpeed.textContent = 'PC Audio -';
+      });
+
+      btnVolUp.addEventListener('click', () => {
+        sendKeyCommand('volup');
+        if ('vibrate' in navigator) navigator.vibrate(15);
+        touchHudStatus.textContent = '🔊 Volume Naik';
+        touchHudSpeed.textContent = 'PC Audio +';
+      });
+
+      btnVolMute.addEventListener('click', () => {
+        sendKeyCommand('mute');
+        if ('vibrate' in navigator) navigator.vibrate(25);
+        isAudioMuted = !isAudioMuted;
+        if (isAudioMuted) {
+          btnVolMute.classList.add('is-muted');
+          muteLabel.textContent = 'Muted';
+          touchHudStatus.textContent = '🔇 Suara Dibisukan';
+          touchHudSpeed.textContent = 'Audio Muted';
+        } else {
+          btnVolMute.classList.remove('is-muted');
+          muteLabel.textContent = 'Mute';
+          touchHudStatus.textContent = '🔊 Suara Aktif';
+          touchHudSpeed.textContent = 'Audio Unmuted';
+        }
+      });
+
+      // ------------------------------------------------------------------------
+      // TOUCHPAD INTERACTION ENGINE (Trackpad Mouse, Shorts, Smooth Scroll)
+      // ------------------------------------------------------------------------
+      let touchStartX = 0;
+      let touchStartY = 0;
+      let touchLastX = 0;
+      let touchLastY = 0;
+      let touchStartTime = 0;
+      let touchCount = 1;
+      let touchMovedDistance = 0;
+      let longPressTimer = null;
+      let isStripScrolling = false;
+      let lastStripY = 0;
+      let twoFingerLastY = 0;
+
+      let touchVelocity = 0;
+      let isTouching = false;
+      let touchInertiaId = null;
+      let swipeHandled = false;
+
+      function handleTouchStart(y, clientX, clientY, e) {
+        isTouching = true;
+        touchStartTime = performance.now();
+        touchCount = e && e.touches ? e.touches.length : 1;
+        touchMovedDistance = 0;
+        touchStartY = y;
+        touchLastY = y;
+        touchStartX = clientX;
+        touchLastX = clientX;
+        touchVelocity = 0;
+        swipeHandled = false;
+        cancelAnimationFrame(touchInertiaId);
+
+        touchCursor.style.display = 'block';
+        updateTouchCursorPos(clientX, clientY);
+
+        // A. MODE MOUSE
+        if (touchStyle === 'mouse') {
+          const rect = touchpadArea.getBoundingClientRect();
+          if (clientX > rect.right - 44) {
+            isStripScrolling = true;
+            trackpadScrollStrip.classList.add('active');
+            lastStripY = y;
+            touchHudStatus.textContent = '📜 Roda Scroll';
+            touchHudSpeed.textContent = 'Gulir Samping';
+            return;
+          }
+
+          if (touchCount === 2 && e && e.touches) {
+            twoFingerLastY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            touchHudStatus.textContent = '✌️ Scroll 2 Jari';
+            touchHudSpeed.textContent = 'Gulir Roda Mouse';
+            return;
+          }
+
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            if (isTouching && touchMovedDistance < 10) {
+              sendMouseClick('right');
+              touchMovedDistance = 999;
+              touchCursor.style.transform = 'translate(-50%, -50%) scale(1.6)';
+              setTimeout(() => { touchCursor.style.transform = 'translate(-50%, -50%) scale(1)'; }, 200);
+            }
+          }, 480);
+          return;
+        }
+
+        if (touchStyle === 'shorts') {
+          touchHudStatus.textContent = '🎬 Siap Usap Shorts';
+          touchHudSpeed.textContent = '1 Swipe = 1 Video';
+        } else {
+          touchHudStatus.textContent = '🌊 Gulir Halus';
+          touchHudSpeed.textContent = 'Menyentuh...';
+        }
+      }
+
+      function handleTouchMove(y, clientX, clientY, e) {
+        if (!isTouching) return;
+        updateTouchCursorPos(clientX, clientY);
+
+        // 1. MODE MOUSE TRACKPAD
+        if (touchStyle === 'mouse') {
+          if (isStripScrolling) {
+            const dy = y - lastStripY;
+            lastStripY = y;
+            if (Math.abs(dy) > 1) {
+              sendMouseScroll(-dy * 6.5 * manualSpeed);
+            }
+            return;
+          }
+
+          if (e && e.touches && e.touches.length === 2) {
+            clearTimeout(longPressTimer);
+            const currentAvgY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            const dy = currentAvgY - twoFingerLastY;
+            twoFingerLastY = currentAvgY;
+            if (Math.abs(dy) > 1) {
+              sendMouseScroll(-dy * 5.0 * manualSpeed);
+            }
+            return;
+          }
+
+          const dx = clientX - touchLastX;
+          const dy = clientY - touchLastY;
+          touchLastX = clientX;
+          touchLastY = clientY;
+
+          touchMovedDistance += Math.hypot(dx, dy);
+          if (touchMovedDistance > 7) {
+            clearTimeout(longPressTimer);
+          }
+
+          const sensitivity = manualSpeed * 1.55;
+          sendMouseMove(dx * sensitivity, dy * sensitivity);
+          touchHudStatus.textContent = '🖱️ Gerakkan Kursor';
+          touchHudSpeed.textContent = `${dx > 0 ? '+' : ''}${dx.toFixed(0)}, ${dy > 0 ? '+' : ''}${dy.toFixed(0)}`;
+          return;
+        }
+
+        const deltaFromLast = y - touchLastY;
+        const totalDeltaFromStart = y - touchStartY;
+        touchLastY = y;
+
+        // 2. SNAP SHORTS
+        if (touchStyle === 'shorts') {
+          if (swipeHandled) return;
+          const SWIPE_THRESHOLD = 32;
+
+          if (totalDeltaFromStart < -SWIPE_THRESHOLD) {
+            swipeHandled = true;
+            if ('vibrate' in navigator) navigator.vibrate(30);
+            sendSwipeToPC('next');
+            if (isMediaPaused) {
+              isMediaPaused = false;
+              updatePlayPauseUI();
+            }
+
+            chevronDown.classList.add('active');
+            chevronUp.classList.remove('active');
+            touchHudStatus.textContent = '⏭️ Video Lanjut';
+            touchHudSpeed.textContent = 'Tepat 1 Video';
+          } else if (totalDeltaFromStart > SWIPE_THRESHOLD) {
+            swipeHandled = true;
+            if ('vibrate' in navigator) navigator.vibrate(30);
+            sendSwipeToPC('prev');
+            if (isMediaPaused) {
+              isMediaPaused = false;
+              updatePlayPauseUI();
+            }
+
+            chevronUp.classList.add('active');
+            chevronDown.classList.remove('active');
+            touchHudStatus.textContent = '⏮️ Video Sebelumnya';
+            touchHudSpeed.textContent = 'Tepat 1 Video';
+          }
+          return;
+        }
+
+        // 3. GULIR HALUS
+        if (touchStyle === 'smooth') {
+          const v = -deltaFromLast * 0.85 * manualSpeed;
+          touchVelocity = v;
+          updateVisualFeedback(v);
+          sendScrollToPC(v);
+        }
+      }
+
+      function handleTouchEnd(e) {
+        if (!isTouching) return;
+        isTouching = false;
+        touchCursor.style.display = 'none';
+        swipeHandled = false;
+        clearTimeout(longPressTimer);
+        chevronUp.classList.remove('active');
+        chevronDown.classList.remove('active');
+
+        if (isStripScrolling) {
+          isStripScrolling = false;
+          trackpadScrollStrip.classList.remove('active');
+        }
+
+        if (touchStyle === 'mouse') {
+          const duration = performance.now() - touchStartTime;
+          if (touchMovedDistance < 12 && duration < 280) {
+            if (touchCount >= 2) {
+              sendMouseClick('right');
+            } else {
+              sendMouseClick('left');
+            }
+          } else {
+            touchHudStatus.textContent = '🖱️ Mouse Trackpad';
+            touchHudSpeed.textContent = 'Ketuk: Kiri · 2 Jari: Kanan';
+          }
+          return;
+        }
+
+        if (touchStyle === 'shorts') {
+          touchHudStatus.textContent = '🎬 Snap Shorts';
+          touchHudSpeed.textContent = '1 Usap = 1 Video';
+          return;
+        }
+
+        if (touchStyle === 'smooth') {
+          if (Math.abs(touchVelocity) > 2.5) {
+            let momentum = touchVelocity;
+            function runInertia() {
+              if (Math.abs(momentum) < 0.4 || isTouching) {
+                sendScrollToPC(0);
+                updateVisualFeedback(0);
+                touchHudStatus.textContent = '🌊 Gulir Halus';
+                touchHudSpeed.textContent = 'Sentuh & Geser';
+                return;
+              }
+              sendScrollToPC(momentum);
+              updateVisualFeedback(momentum);
+              momentum *= 0.86;
+              touchInertiaId = requestAnimationFrame(runInertia);
+            }
+            touchInertiaId = requestAnimationFrame(runInertia);
+          } else {
+            sendScrollToPC(0);
+            updateVisualFeedback(0);
+            touchHudStatus.textContent = '🌊 Gulir Halus';
+            touchHudSpeed.textContent = 'Sentuh & Geser';
+          }
+        }
+      }
+
+      function updateTouchCursorPos(x, y) {
+        const rect = touchpadArea.getBoundingClientRect();
+        touchCursor.style.left = (x - rect.left) + 'px';
+        touchCursor.style.top = (y - rect.top) + 'px';
+      }
+
+      function updateVisualFeedback(v) {
+        if (v < -0.5) {
+          chevronUp.classList.add('active');
+          chevronDown.classList.remove('active');
+          touchHudStatus.textContent = '⬆ Scroll Naik';
+          touchHudSpeed.textContent = Math.abs(v).toFixed(0) + ' px';
+        } else if (v > 0.5) {
+          chevronDown.classList.add('active');
+          chevronUp.classList.remove('active');
+          touchHudStatus.textContent = '⬇ Scroll Turun';
+          touchHudSpeed.textContent = Math.abs(v).toFixed(0) + ' px';
+        } else {
+          chevronUp.classList.remove('active');
+          chevronDown.classList.remove('active');
+        }
+      }
+
+      // Touchpad Touch Events
+      touchpadArea.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) {
+          const t = e.touches[0];
+          handleTouchStart(t.clientY, t.clientX, t.clientY, e);
+        }
+      }, { passive: true });
+
+      touchpadArea.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+          const t = e.touches[0];
+          handleTouchMove(t.clientY, t.clientX, t.clientY, e);
+        }
+      }, { passive: true });
+
+      touchpadArea.addEventListener('touchend', (e) => handleTouchEnd(e), { passive: true });
+      touchpadArea.addEventListener('touchcancel', (e) => handleTouchEnd(e), { passive: true });
+
+      // Mouse drag fallback for PC testing
+      let isMouseDown = false;
+      touchpadArea.addEventListener('mousedown', (e) => {
+        isMouseDown = true;
+        handleTouchStart(e.clientY, e.clientX, e.clientY, e);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (isMouseDown) handleTouchMove(e.clientY, e.clientX, e.clientY, e);
+      });
+      window.addEventListener('mouseup', (e) => {
+        if (isMouseDown) {
+          isMouseDown = false;
+          handleTouchEnd(e);
+        }
+      });
+
+      // ------------------------------------------------------------------------
+      // Camera Hand & Eye Detection
+      // ------------------------------------------------------------------------
+      let frameCount = 0;
+      let lastFpsCheck = performance.now();
+
+      function updateCamBanner(v, text) {
+        camDirectionText.textContent = text;
+        if (v < -0.5) {
+          camDirectionBanner.className = 'cam-banner up';
+          camDirectionIcon.textContent = '⬆';
+        } else if (v > 0.5) {
+          camDirectionBanner.className = 'cam-banner down';
+          camDirectionIcon.textContent = '⬇';
+        } else {
+          camDirectionBanner.className = 'cam-banner';
+          camDirectionIcon.textContent = '⏸';
+        }
+      }
+
+      async function initializeHands() {
+        if (!window.Hands) return false;
+        try {
+          handsInstance = new window.Hands({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+          });
+          handsInstance.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+          });
+          handsInstance.onResults(onHandResults);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function onHandResults(results) {
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsCheck >= 1000) {
+          hudFps.textContent = `${Math.round((frameCount * 1000) / (now - lastFpsCheck))} FPS`;
+          frameCount = 0;
+          lastFpsCheck = now;
+        }
+
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        canvasCtx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
+
+        if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+          targetVelocity = 0;
+          smoothedPalmY = null;
+          smoothedTipDeltaY = null;
+          hudMetric.textContent = 'Tangan: -';
+          updateCamBanner(0, 'Mencari Tangan...');
+          sendScrollToPC(0);
+          canvasCtx.restore();
+          return;
+        }
+
+        const landmarks = results.multiHandLandmarks[0];
+        const wrist = landmarks[0];
+        const indexPip = landmarks[6];
+        const indexTip = landmarks[8];
+        const middleTip = landmarks[12];
+        const middlePip = landmarks[10];
+
+        const dx = wrist.x - landmarks[9].x;
+        const dy = wrist.y - landmarks[9].y;
+        const handSpan = Math.sqrt(dx * dx + dy * dy) || 0.3;
+        const palmY = (wrist.y + landmarks[5].y + landmarks[9].y + landmarks[13].y) / 4;
+
+        if (cameraSubMode === 'tip') {
+          const rawTipDeltaY = (indexTip.y - indexPip.y) / handSpan;
+          if (smoothedTipDeltaY === null) smoothedTipDeltaY = rawTipDeltaY;
+          else smoothedTipDeltaY = smoothedTipDeltaY * 0.65 + rawTipDeltaY * 0.35;
+
+          const TIP_UP_ENTER = -0.15;
+          const TIP_UP_EXIT = -0.08;
+          const TIP_DOWN_ENTER = 0.13;
+          const TIP_DOWN_EXIT = 0.07;
+
+          if (activeTipState === 'up') {
+            if (smoothedTipDeltaY > TIP_UP_EXIT) activeTipState = 'neutral';
+          } else if (activeTipState === 'down') {
+            if (smoothedTipDeltaY < TIP_DOWN_EXIT) activeTipState = 'neutral';
+          } else {
+            if (smoothedTipDeltaY < TIP_UP_ENTER) activeTipState = 'up';
+            else if (smoothedTipDeltaY > TIP_DOWN_ENTER) activeTipState = 'down';
+          }
+
+          const isMiddleRaised = (middleTip.y - middlePip.y) / handSpan < -0.10;
+
+          if (activeTipState === 'up') {
+            const factor = Math.min(1, Math.max(0, (-TIP_UP_EXIT - smoothedTipDeltaY) / 0.35));
+            let baseV = 5 + factor * 20;
+            if (isMiddleRaised) baseV *= 2.2;
+            targetVelocity = -baseV * manualSpeed;
+            hudMetric.textContent = `Telunjuk: Naik`;
+            updateCamBanner(targetVelocity, '⬆ Scroll Naik');
+          } else if (activeTipState === 'down') {
+            const factor = Math.min(1, Math.max(0, (smoothedTipDeltaY - TIP_DOWN_EXIT) / 0.35));
+            let baseV = 5 + factor * 20;
+            if (isMiddleRaised) baseV *= 2.2;
+            targetVelocity = baseV * manualSpeed;
+            hudMetric.textContent = `Telunjuk: Turun`;
+            updateCamBanner(targetVelocity, '⬇ Scroll Turun');
+          } else {
+            targetVelocity = 0;
+            hudMetric.textContent = 'Rileks';
+            updateCamBanner(0, 'Telunjuk Santai 🎯');
+          }
+        } else if (cameraSubMode === 'zone') {
+          if (smoothedPalmY === null) smoothedPalmY = palmY;
+          else smoothedPalmY = smoothedPalmY * 0.7 + palmY * 0.3;
+
+          if (smoothedPalmY < 0.38) {
+            targetVelocity = -18 * manualSpeed;
+            hudMetric.textContent = `Zona Atas`;
+            updateCamBanner(targetVelocity, '⬆ Scroll Naik');
+          } else if (smoothedPalmY > 0.62) {
+            targetVelocity = 18 * manualSpeed;
+            hudMetric.textContent = `Zona Bawah`;
+            updateCamBanner(targetVelocity, '⬇ Scroll Turun');
+          } else {
+            targetVelocity = 0;
+            hudMetric.textContent = `Zona Tengah`;
+            updateCamBanner(0, 'Diam (Tengah) ⏸');
+          }
+        }
+
+        sendScrollToPC(targetVelocity);
+        canvasCtx.restore();
+      }
+
+      async function initializeFaceMesh() {
+        if (!window.FaceMesh) return false;
+        try {
+          faceMeshInstance = new window.FaceMesh({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+          });
+          faceMeshInstance.setOptions({
+            maxNumFaces: 1,
+            refineLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+          });
+          faceMeshInstance.onResults(onFaceResults);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function onFaceResults(results) {
+        frameCount++;
+        const now = performance.now();
+        if (now - lastFpsCheck >= 1000) {
+          hudFps.textContent = `${Math.round((frameCount * 1000) / (now - lastFpsCheck))} FPS`;
+          frameCount = 0;
+          lastFpsCheck = now;
+        }
+
+        canvasCtx.save();
+        canvasCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        canvasCtx.drawImage(results.image, 0, 0, outputCanvas.width, outputCanvas.height);
+
+        if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) {
+          targetVelocity = 0;
+          smoothedGazeY = null;
+          hudMetric.textContent = 'Mata: -';
+          updateCamBanner(0, 'Mencari Wajah/Mata...');
+          sendScrollToPC(0);
+          canvasCtx.restore();
+          return;
+        }
+
+        const landmarks = results.multiFaceLandmarks[0];
+        const rightIris = landmarks[468] || landmarks[473];
+        const leftIris = landmarks[473] || landmarks[468];
+        const rightTop = landmarks[159];
+        const rightBot = landmarks[145];
+        const leftTop = landmarks[386];
+        const leftBot = landmarks[374];
+
+        if (!rightIris || !leftIris || !rightTop || !rightBot || !leftTop || !leftBot) {
+          canvasCtx.restore();
+          return;
+        }
+
+        const rightHeight = Math.abs(rightBot.y - rightTop.y);
+        const leftHeight = Math.abs(leftBot.y - leftTop.y);
+
+        if (rightHeight < 0.009 || leftHeight < 0.009) {
+          targetVelocity = 0;
+          hudMetric.textContent = 'Pejam';
+          updateCamBanner(0, 'Mata Terpejam (Diam) ⏸');
+          sendScrollToPC(0);
+          canvasCtx.restore();
+          return;
+        }
+
+        const rightRatio = (rightIris.y - rightTop.y) / (rightHeight || 0.02);
+        const leftRatio = (leftIris.y - leftTop.y) / (leftHeight || 0.02);
+        const rawIrisRatio = (rightRatio + leftRatio) / 2;
+
+        const noseTip = landmarks[1];
+        const eyeBridge = landmarks[168] || landmarks[6];
+        const chin = landmarks[152];
+        const faceSpan = Math.abs(chin.y - eyeBridge.y) || 0.25;
+        const headPitch = (noseTip.y - eyeBridge.y) / faceSpan;
+        const pitchDelta = (headPitch - 0.42) * 1.3;
+        const rawGaze = rawIrisRatio * 0.75 + (rawIrisRatio + pitchDelta) * 0.25;
+
+        if (smoothedGazeY === null) smoothedGazeY = rawGaze;
+        else smoothedGazeY = smoothedGazeY * 0.65 + rawGaze * 0.35;
+
+        const GAZE_UP_ENTER = 0.36;
+        const GAZE_UP_EXIT = 0.42;
+        const GAZE_DOWN_ENTER = 0.64;
+        const GAZE_DOWN_EXIT = 0.58;
+
+        if (activeGazeState === 'up') {
+          if (smoothedGazeY > GAZE_UP_EXIT) activeGazeState = 'neutral';
+        } else if (activeGazeState === 'down') {
+          if (smoothedGazeY < GAZE_DOWN_EXIT) activeGazeState = 'neutral';
+        } else {
+          if (smoothedGazeY < GAZE_UP_ENTER) activeGazeState = 'up';
+          else if (smoothedGazeY > GAZE_DOWN_ENTER) activeGazeState = 'down';
+        }
+
+        if (activeGazeState === 'up') {
+          const factor = Math.min(1, Math.max(0, (GAZE_UP_EXIT - smoothedGazeY) / 0.22));
+          targetVelocity = -(5 + factor * 22) * manualSpeed;
+          updateCamBanner(targetVelocity, '⬆ Poni HP: Scroll Naik');
+          gazeUp.classList.add('active');
+          gazeNeutral.classList.remove('active');
+          gazeDown.classList.remove('active');
+        } else if (activeGazeState === 'down') {
+          const factor = Math.min(1, Math.max(0, (smoothedGazeY - GAZE_DOWN_EXIT) / 0.22));
+          targetVelocity = (5 + factor * 22) * manualSpeed;
+          updateCamBanner(targetVelocity, '⬇ Navbar HP: Scroll Turun');
+          gazeDown.classList.add('active');
+          gazeUp.classList.remove('active');
+          gazeNeutral.classList.remove('active');
+        } else {
+          targetVelocity = 0;
+          updateCamBanner(0, '📖 Membaca Layar HP ⏸');
+          gazeNeutral.classList.add('active');
+          gazeUp.classList.remove('active');
+          gazeDown.classList.remove('active');
+        }
+
+        sendScrollToPC(targetVelocity);
+        canvasCtx.restore();
+      }
+
+      async function startCamera() {
+        if (cameraSubMode === 'eye') {
+          if (!faceMeshInstance) await initializeFaceMesh();
+        } else {
+          if (!handsInstance) await initializeHands();
+        }
+
+        try {
+          camPlaceholder.classList.add('hidden');
+          cameraInstance = new window.Camera(webcamVideo, {
+            onFrame: async () => {
+              if (!isCameraActive) return;
+              if (cameraSubMode === 'eye') {
+                if (faceMeshInstance) await faceMeshInstance.send({ image: webcamVideo });
+              } else {
+                if (handsInstance) await handsInstance.send({ image: webcamVideo });
+              }
+            },
+            width: 320,
+            height: 240,
+            facingMode: 'user'
+          });
+          await cameraInstance.start();
+          isCameraActive = true;
+          updateCamBanner(0, 'Kamera Aktif');
+        } catch (err) {
+          camPlaceholder.classList.remove('hidden');
+          alert('Izin kamera selfie ditolak atau tidak tersedia.');
+        }
+      }
+
+      function stopCamera() {
+        if (cameraInstance) {
+          cameraInstance.stop();
+          isCameraActive = false;
+        }
+        camPlaceholder.classList.remove('hidden');
+      }
+
+      btnStartCamera.addEventListener('click', startCamera);
+
+      // ------------------------------------------------------------------------
+      // Screen Wake Lock API
+      // ------------------------------------------------------------------------
+      let wakeLock = null;
+      async function requestWakeLock() {
+        if ('wakeLock' in navigator) {
+          try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => { wakeLock = null; });
+          } catch (e) {}
+        }
+      }
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') requestWakeLock();
+      });
+      requestWakeLock();
+      ['click', 'touchstart'].forEach(e => document.addEventListener(e, () => {
+        if (!wakeLock) requestWakeLock();
+      }, { passive: true }));
+
+    })();
+  </script>
+</body>
+</html>

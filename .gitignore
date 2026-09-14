@@ -1,0 +1,6 @@
+# Logs & Temporary files
+*.log
+*.tmp
+__pycache__/
+.vscode/
+.idea/
